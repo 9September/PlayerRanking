@@ -33,8 +33,77 @@ public class TopPlayerPlaceholder extends PlaceholderExpansion {
         return "1.0";
     }
 
+    // In TopPlayerPlaceholder.java
+
+    @Override
     public String onRequest(OfflinePlayer player, String identifier) {
-        /*
+        if (identifier.startsWith("level_top")) {
+            String rest = identifier.substring("level_top".length());
+            if (rest.matches("\\d+")) {
+                int rank = Integer.parseInt(rest) - 1;
+                List<OfflinePlayer> topPlayers = this.plugin.getTopPlayers(5, Comparator.comparingInt(this.plugin::getPlayerLevel).reversed());
+                if (topPlayers.size() > rank) {
+                    OfflinePlayer topPlayer = topPlayers.get(rank);
+                    return topPlayer.getName() != null ? topPlayer.getName() : "Unknown";
+                } else {
+                    return "";
+                }
+            } else if (rest.matches("\\d+_level")) {
+                int rank = Integer.parseInt(rest.substring(0, rest.indexOf("_"))) - 1;
+                List<OfflinePlayer> topPlayers = this.plugin.getTopPlayers(5, Comparator.comparingInt(this.plugin::getPlayerLevel).reversed());
+                if (topPlayers.size() > rank) {
+                    return String.valueOf(this.plugin.getPlayerLevel(topPlayers.get(rank)));
+                } else {
+                    return "";
+                }
+            }
+        } else if (identifier.startsWith("money_top")) {
+            String rest = identifier.substring("money_top".length());
+            if (rest.matches("\\d+")) {
+                int rank = Integer.parseInt(rest) - 1;
+                List<OfflinePlayer> topPlayers = this.plugin.getTopPlayers(5, Comparator.comparingDouble(this.plugin::getPlayerMoney).reversed());
+                if (topPlayers.size() > rank) {
+                    return topPlayers.get(rank).getName() != null ? topPlayers.get(rank).getName() : "Unknown";
+                } else {
+                    return "";
+                }
+            } else if (rest.matches("\\d+_money")) {
+                int rank = Integer.parseInt(rest.substring(0, rest.indexOf("_"))) - 1;
+                List<OfflinePlayer> topPlayers = this.plugin.getTopPlayers(5, Comparator.comparingDouble(this.plugin::getPlayerMoney).reversed());
+                if (topPlayers.size() > rank) {
+                    return String.format("%.2f", this.plugin.getPlayerMoney(topPlayers.get(rank)));
+                } else {
+                    return "";
+                }
+            }
+        } else if (identifier.startsWith("combatpower_top")) {
+            String rest = identifier.substring("combatpower_top".length());
+            if (rest.matches("\\d+")) {
+                int rank = Integer.parseInt(rest) - 1;
+                List<OfflinePlayer> topPlayers = this.plugin.getTopPlayers(5, Comparator.comparingInt(this.plugin::getPlayerCombatPower).reversed());
+                if (topPlayers.size() > rank) {
+                    OfflinePlayer topPlayer = topPlayers.get(rank);
+                    return topPlayer.getName() != null ? topPlayer.getName() : "Unknown";
+                } else {
+                    return "";
+                }
+            } else if (rest.matches("\\d+_combatpower")) {
+                int rank = Integer.parseInt(rest.substring(0, rest.indexOf("_"))) - 1;
+                List<OfflinePlayer> topPlayers = this.plugin.getTopPlayers(5, Comparator.comparingInt(this.plugin::getPlayerCombatPower).reversed());
+                if (topPlayers.size() > rank) {
+                    return String.valueOf(this.plugin.getPlayerCombatPower(topPlayers.get(rank)));
+                } else {
+                    return "";
+                }
+            }
+        }
+
+        return null;
+    }
+
+
+}
+/*
             [level]
             Player Name
             %topplayers_level_top1%
@@ -82,67 +151,4 @@ public class TopPlayerPlaceholder extends PlaceholderExpansion {
             %topplayers_combat_top4_power%
             %topplayers_combat_top5_power%
 
-         */
-
-        if (identifier.startsWith("level_top")) {
-            String rest = identifier.substring("level_top".length());
-            if (rest.matches("\\d+")) {
-                int rank = Integer.parseInt(rest) - 1;
-                List<OfflinePlayer> topPlayers = this.plugin.getTopPlayers(5, Comparator.comparingInt(plugin::getPlayerLevel).reversed());
-                if (topPlayers.size() > rank) {
-                    return topPlayers.get(rank).getName();
-                } else {
-                    return "";
-                }
-            } else if (rest.matches("\\d+_level")) {
-                int rank = Integer.parseInt(rest.substring(0, rest.indexOf("_"))) - 1;
-                List<OfflinePlayer> topPlayers = this.plugin.getTopPlayers(5, Comparator.comparingInt(plugin::getPlayerLevel).reversed());
-                if (topPlayers.size() > rank) {
-                    return String.valueOf(this.plugin.getPlayerLevel(topPlayers.get(rank)));
-                } else {
-                    return "";
-                }
-            }
-        } else if (identifier.startsWith("money_top")) {
-            String rest = identifier.substring("money_top".length());
-            if (rest.matches("\\d+")) {
-                int rank = Integer.parseInt(rest) - 1;
-                List<OfflinePlayer> topPlayers = this.plugin.getTopPlayers(5, Comparator.comparingDouble(plugin::getPlayerMoney).reversed());
-                if (topPlayers.size() > rank) {
-                    return topPlayers.get(rank).getName();
-                } else {
-                    return "";
-                }
-            } else if (rest.matches("\\d+_money")) {
-                int rank = Integer.parseInt(rest.substring(0, rest.indexOf("_"))) - 1;
-                List<OfflinePlayer> topPlayers = this.plugin.getTopPlayers(5, Comparator.comparingDouble(plugin::getPlayerMoney).reversed());
-                if (topPlayers.size() > rank) {
-                    return String.format("%.2f", this.plugin.getPlayerMoney(topPlayers.get(rank)));
-                } else {
-                    return "";
-                }
-            }
-        } else if (identifier.startsWith("combat_top")) {
-            String rest = identifier.substring("combat_top".length());
-            if (rest.matches("\\d+")) {
-                int rank = Integer.parseInt(rest) - 1;
-                List<OfflinePlayer> topPlayers = this.plugin.getTopPlayers(5, Comparator.comparingInt(plugin::getPlayerCombatPower).reversed());
-                if (topPlayers.size() > rank) {
-                    return topPlayers.get(rank).getName();
-                } else {
-                    return "";
-                }
-            } else if (rest.matches("\\d+_power")) {
-                int rank = Integer.parseInt(rest.substring(0, rest.indexOf("_"))) - 1;
-                List<OfflinePlayer> topPlayers = this.plugin.getTopPlayers(5, Comparator.comparingInt(plugin::getPlayerCombatPower).reversed());
-                if (topPlayers.size() > rank) {
-                    return String.valueOf(this.plugin.getPlayerCombatPower(topPlayers.get(rank)));
-                } else {
-                    return "";
-                }
-            }
-        }
-
-        return null;
-    }
-}
+*/
