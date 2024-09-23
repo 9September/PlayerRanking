@@ -173,7 +173,6 @@ public final class PlayerRanking extends JavaPlugin implements Listener {
         String path = "players." + player.getUniqueId().toString() + ".level";
         this.playerDataConfig.set(path, level); // 경로 수정
         savePlayerData();
-        getLogger().info("플레이어 " + player.getName() + "의 레벨을 " + level + "으로 저장했습니다.");
     }
 
     /**
@@ -186,16 +185,13 @@ public final class PlayerRanking extends JavaPlugin implements Listener {
         }
         if (player.isOnline()) {
             int level = player.getPlayer().getLevel();
-            getLogger().info("온라인 플레이어 " + player.getName() + "의 레벨: " + level);
             return level;
         }
         String path = "players." + player.getUniqueId().toString() + ".level";
         if (this.playerDataConfig.contains(path)) {
             int level = this.playerDataConfig.getInt(path, 0);
-            getLogger().info("플레이어 " + player.getName() + "의 레벨: " + level);
             return level;
         } else {
-            getLogger().info("플레이어 " + player.getName() + "의 레벨 데이터가 없습니다.");
             return 0;
         }
     }
@@ -325,10 +321,8 @@ public final class PlayerRanking extends JavaPlugin implements Listener {
         String path = "players." + player.getUniqueId().toString() + ".combat_power";
         if (this.playerDataConfig.contains(path)) {
             int combatPower = this.playerDataConfig.getInt(path, 0);
-            getLogger().info("플레이어 " + player.getName() + "의 전투력: " + combatPower);
             return combatPower;
         } else {
-            getLogger().info("플레이어 " + player.getName() + "의 전투력 데이터가 없습니다.");
             return 0;
         }
     }
@@ -344,7 +338,6 @@ public final class PlayerRanking extends JavaPlugin implements Listener {
         String path = "players." + player.getUniqueId().toString() + ".combat_power";
         this.playerDataConfig.set(path, combatPower); // 경로 수정
         savePlayerData();
-        getLogger().info("플레이어 " + player.getName() + "의 전투력을 " + combatPower + "으로 저장했습니다.");
     }
 
     /**
@@ -370,7 +363,6 @@ public final class PlayerRanking extends JavaPlugin implements Listener {
         // 전투력 계산 및 저장
         int combatPower = calculateCombatPower(player);
         setPlayerCombatPower(player, combatPower);
-        getLogger().info("플레이어 " + player.getName() + "의 전투력: " + combatPower);
     }
 
     @EventHandler
