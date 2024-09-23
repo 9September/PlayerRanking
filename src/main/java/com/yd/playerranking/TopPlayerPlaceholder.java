@@ -5,6 +5,8 @@ import org.bukkit.OfflinePlayer;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class TopPlayerPlaceholder extends PlaceholderExpansion {
     private final PlayerRanking plugin;
@@ -13,142 +15,131 @@ public class TopPlayerPlaceholder extends PlaceholderExpansion {
         this.plugin = plugin;
     }
 
+    @Override
     public boolean persist() {
         return true;
     }
 
+    @Override
     public boolean canRegister() {
         return true;
     }
 
+    @Override
     public String getIdentifier() {
         return "topplayers";
     }
 
+    @Override
     public String getAuthor() {
         return "YD";
     }
 
+    @Override
     public String getVersion() {
         return "1.0";
     }
 
-    // In TopPlayerPlaceholder.java
-
     @Override
     public String onRequest(OfflinePlayer player, String identifier) {
         if (identifier.startsWith("level_top")) {
-            String rest = identifier.substring("level_top".length());
-            if (rest.matches("\\d+")) {
-                int rank = Integer.parseInt(rest) - 1;
-                List<OfflinePlayer> topPlayers = this.plugin.getTopPlayers(5, Comparator.comparingInt(this.plugin::getPlayerLevel).reversed());
-                if (topPlayers.size() > rank) {
-                    OfflinePlayer topPlayer = topPlayers.get(rank);
-                    return topPlayer.getName() != null ? topPlayer.getName() : "Unknown";
-                } else {
-                    return "";
-                }
-            } else if (rest.matches("\\d+_level")) {
-                int rank = Integer.parseInt(rest.substring(0, rest.indexOf("_"))) - 1;
-                List<OfflinePlayer> topPlayers = this.plugin.getTopPlayers(5, Comparator.comparingInt(this.plugin::getPlayerLevel).reversed());
-                if (topPlayers.size() > rank) {
-                    return String.valueOf(this.plugin.getPlayerLevel(topPlayers.get(rank)));
-                } else {
-                    return "";
-                }
-            }
+            return handleTopRequest(identifier, "level", this.plugin::getPlayerLevel, Comparator.comparingInt(this.plugin::getPlayerLevel));
         } else if (identifier.startsWith("money_top")) {
-            String rest = identifier.substring("money_top".length());
-            if (rest.matches("\\d+")) {
-                int rank = Integer.parseInt(rest) - 1;
-                List<OfflinePlayer> topPlayers = this.plugin.getTopPlayers(5, Comparator.comparingDouble(this.plugin::getPlayerMoney).reversed());
-                if (topPlayers.size() > rank) {
-                    return topPlayers.get(rank).getName() != null ? topPlayers.get(rank).getName() : "Unknown";
-                } else {
-                    return "";
-                }
-            } else if (rest.matches("\\d+_money")) {
-                int rank = Integer.parseInt(rest.substring(0, rest.indexOf("_"))) - 1;
-                List<OfflinePlayer> topPlayers = this.plugin.getTopPlayers(5, Comparator.comparingDouble(this.plugin::getPlayerMoney).reversed());
-                if (topPlayers.size() > rank) {
-                    return String.format("%.2f", this.plugin.getPlayerMoney(topPlayers.get(rank)));
-                } else {
-                    return "";
-                }
-            }
-        } else if (identifier.startsWith("combatpower_top")) {
-            String rest = identifier.substring("combatpower_top".length());
-            if (rest.matches("\\d+")) {
-                int rank = Integer.parseInt(rest) - 1;
-                List<OfflinePlayer> topPlayers = this.plugin.getTopPlayers(5, Comparator.comparingInt(this.plugin::getPlayerCombatPower).reversed());
-                if (topPlayers.size() > rank) {
-                    OfflinePlayer topPlayer = topPlayers.get(rank);
-                    return topPlayer.getName() != null ? topPlayer.getName() : "Unknown";
-                } else {
-                    return "";
-                }
-            } else if (rest.matches("\\d+_combatpower")) {
-                int rank = Integer.parseInt(rest.substring(0, rest.indexOf("_"))) - 1;
-                List<OfflinePlayer> topPlayers = this.plugin.getTopPlayers(5, Comparator.comparingInt(this.plugin::getPlayerCombatPower).reversed());
-                if (topPlayers.size() > rank) {
-                    return String.valueOf(this.plugin.getPlayerCombatPower(topPlayers.get(rank)));
-                } else {
-                    return "";
-                }
-            }
+            return handleTopRequest(identifier, "money", this.plugin::getPlayerMoney, Comparator.comparingDouble(this.plugin::getPlayerMoney));
+        } else if (identifier.startsWith("combat_top")) {
+            return handleTopRequest(identifier, "combat", this.plugin::getPlayerCombatPower, Comparator.comparingInt(this.plugin::getPlayerCombatPower));
         }
-
         return null;
     }
 
+    /**
+     * 공통 처리 메서드
+     * 플레이어 이름만 반환하거나, 값만 반환할 수 있습니다.
+     */
+    private <T extends Comparable<T>> String handleTopRequest(String identifier, String type, Function<OfflinePlayer, T> valueGetter, Comparator<OfflinePlayer> comparator) {
+        String rest = identifier.substring((type + "_top").length());
 
+        // 랭크와 반환 타입 결정
+        boolean returnValue = false;
+        int rank = -1;
+
+        if (rest.matches("\\d+")) {
+            // 플레이어 이름만 출력
+            rank = Integer.parseInt(rest) - 1;
+        } else if (rest.matches("\\d+_" + getSuffix(type))) {
+            // 값만 출력
+            rank = Integer.parseInt(rest.substring(0, rest.indexOf("_"))) - 1;
+            returnValue = true;
+        } else {
+            return null;
+        }
+
+        if (rank < 0) {
+            return null;
+        }
+
+        // 모든 비OP 플레이어 가져오기
+        List<OfflinePlayer> allPlayers = this.plugin.getAllNonOPPlayers();
+
+        // 특정 타입의 데이터가 있는 플레이어만 필터링
+        List<OfflinePlayer> playersWithData = allPlayers.stream()
+                .filter(p -> hasPlayerData(p, type))
+                .sorted(comparator.reversed())
+                .collect(Collectors.toList());
+
+        if (playersWithData.size() > rank) {
+            OfflinePlayer topPlayer = playersWithData.get(rank);
+            if (returnValue) {
+                // 특정 값 반환
+                T value = valueGetter.apply(topPlayer);
+                if (value == null) {
+                    return "NULL";
+                }
+                if (value instanceof Double) {
+                    return String.format("%.2f", value);
+                } else if (value instanceof Integer) {
+                    return String.valueOf(value);
+                } else {
+                    return value.toString();
+                }
+            } else {
+                // 플레이어 이름 반환
+                return topPlayer.getName() != null ? topPlayer.getName() : "NULL";
+            }
+        } else {
+            return "NULL";
+        }
+    }
+
+    /**
+     * 특정 플레이어의 특정 데이터가 존재하는지 확인
+     */
+    private boolean hasPlayerData(OfflinePlayer player, String type) {
+        switch (type) {
+            case "level":
+                return plugin.getPlayerDataConfig().contains("players." + player.getUniqueId().toString() + ".level");
+            case "money":
+                return true; // Vault를 통해 항상 돈 데이터를 가져올 수 있다고 가정
+            case "combat":
+                return plugin.getPlayerDataConfig().contains("players." + player.getUniqueId().toString() + ".combat_power");
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * 각 타입별 접미사를 반환합니다.
+     */
+    private String getSuffix(String type) {
+        switch (type) {
+            case "level":
+                return "level";
+            case "money":
+                return "money";
+            case "combat":
+                return "power"; // 전투력의 경우 "power" 사용
+            default:
+                return "";
+        }
+    }
 }
-/*
-            [level]
-            Player Name
-            %topplayers_level_top1%
-            %topplayers_level_top2%
-            %topplayers_level_top3%
-            %topplayers_level_top4%
-            %topplayers_level_top5%
-
-            Player Levels
-            %topplayers_level_top1_level%
-            %topplayers_level_top2_level%
-            %topplayers_level_top3_level%
-            %topplayers_level_top4_level%
-            %topplayers_level_top5_level%
-
-
-            [money]
-            Player Name
-            %topplayers_money_top1%
-            %topplayers_money_top2%
-            %topplayers_money_top3%
-            %topplayers_money_top4%
-            %topplayers_money_top5%
-
-            Player Money Balances
-            %topplayers_money_top1_money%
-            %topplayers_money_top2_money%
-            %topplayers_money_top3_money%
-            %topplayers_money_top4_money%
-            %topplayers_money_top5_money%
-
-
-            [combat]
-            Player Name
-            %topplayers_combat_top1%
-            %topplayers_combat_top2%
-            %topplayers_combat_top3%
-            %topplayers_combat_top4%
-            %topplayers_combat_top5%
-
-            Player Combat Powers
-            %topplayers_combat_top1_power%
-            %topplayers_combat_top2_power%
-            %topplayers_combat_top3_power%
-            %topplayers_combat_top4_power%
-            %topplayers_combat_top5_power%
-
-*/

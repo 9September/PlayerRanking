@@ -2,7 +2,6 @@ package com.yd.playerranking;
 
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -28,9 +27,10 @@ public final class PlayerRanking extends JavaPlugin implements Listener {
     private static Economy econ = null;
     private Map<UUID, Integer> combatPowerCache = new HashMap<>();
 
+    @Override
     public void onEnable() {
         if (!setupEconomy()) {
-            getLogger().severe("Vault is not installed! This plugin requires Vault for economy.");
+            getLogger().severe("Vault가 설치되지 않았습니다! 이 플러그인은 경제 기능을 위해 Vault가 필요합니다.");
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
@@ -38,18 +38,19 @@ public final class PlayerRanking extends JavaPlugin implements Listener {
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
             (new TopPlayerPlaceholder(this)).register();
         } else {
-            getLogger().severe("PlaceholderAPI is not installed! This plugin requires PlaceholderAPI.");
+            getLogger().severe("PlaceholderAPI가 설치되지 않았습니다! 이 플러그인은 PlaceholderAPI가 필요합니다.");
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
         loadPlayerData();
         getServer().getPluginManager().registerEvents(this, this);
-        getLogger().info("PlayerRankingPlugin has been enabled!");
+        getLogger().info("PlayerRankingPlugin이 활성화되었습니다!");
+
         new BukkitRunnable() {
             @Override
             public void run() {
                 savePlayerData();
-                getLogger().info("Player data saved successfully.");
+                getLogger().info("플레이어 데이터가 성공적으로 저장되었습니다.");
             }
         }.runTaskTimer(this, 0L, 12000L); // 매 10분마다 저장 (12000 틱)
     }
@@ -58,7 +59,7 @@ public final class PlayerRanking extends JavaPlugin implements Listener {
     public void onDisable() {
         // 플러그인 비활성화 시 데이터 저장
         savePlayerData();
-        getLogger().info("Player data saved on disable.");
+        getLogger().info("플러그인 비활성화 시 데이터가 저장되었습니다.");
     }
 
     private boolean setupEconomy() {
@@ -77,6 +78,9 @@ public final class PlayerRanking extends JavaPlugin implements Listener {
         return econ;
     }
 
+    /**
+     * 플레이어 데이터 설정 파일을 불러옵니다.
+     */
     private void loadPlayerData() {
         this.playerDataFile = new File(getDataFolder(), "playerdata.yml");
         if (!this.playerDataFile.exists()) {
@@ -88,19 +92,49 @@ public final class PlayerRanking extends JavaPlugin implements Listener {
             }
         }
         this.playerDataConfig = YamlConfiguration.loadConfiguration(this.playerDataFile);
-        if (this.playerDataConfig.getKeys(false).contains("level")) { // 예시: 기존 데이터 형식 확인
-            for (String key : this.playerDataConfig.getKeys(false)) {
-                if (isValidUUID(key)) { // key가 UUID 형식인지 확인
-                    // 예시: players.<UUID>.level으로 이동
-                    int level = this.playerDataConfig.getInt(key + ".level", 0);
-                    this.playerDataConfig.set("players." + key + ".level", level);
-                    this.playerDataConfig.set(key, null); // 기존 키 삭제
+
+        // 데이터 마이그레이션: 기존 데이터 형식에서 새로운 형식으로 이동
+        Set<String> rootKeys = new HashSet<>(this.playerDataConfig.getKeys(false));
+        boolean needsMigration = false;
+
+        for (String key : rootKeys) {
+            if (isValidUUID(key)) { // key가 UUID 형식인지 확인
+                if (this.playerDataConfig.contains(key + ".level") || this.playerDataConfig.contains(key + ".combat_power")) {
+                    needsMigration = true;
+                    break;
+                }
+            }
+        }
+
+        if (needsMigration) {
+            for (String key : rootKeys) {
+                if (isValidUUID(key)) {
+                    // 레벨 마이그레이션
+                    if (this.playerDataConfig.contains(key + ".level")) {
+                        int level = this.playerDataConfig.getInt(key + ".level", 0);
+                        this.playerDataConfig.set("players." + key + ".level", level);
+                        getLogger().info("UUID " + key + "의 레벨 데이터를 players." + key + ".level로 마이그레이션했습니다.");
+                    }
+
+                    // 전투력 마이그레이션
+                    if (this.playerDataConfig.contains(key + ".combat_power")) {
+                        int combatPower = this.playerDataConfig.getInt(key + ".combat_power", 0);
+                        this.playerDataConfig.set("players." + key + ".combat_power", combatPower);
+                        getLogger().info("UUID " + key + "의 전투력 데이터를 players." + key + ".combat_power로 마이그레이션했습니다.");
+                    }
+
+                    // 기존 루트 키 삭제
+                    this.playerDataConfig.set(key, null);
                 }
             }
             savePlayerData(); // 변경 사항 저장
+            getLogger().info("플레이어 데이터 마이그레이션이 완료되었습니다.");
         }
     }
 
+    /**
+     * 주어진 문자열이 유효한 UUID 형식인지 확인합니다.
+     */
     private boolean isValidUUID(String uuid) {
         try {
             UUID.fromString(uuid);
@@ -110,6 +144,9 @@ public final class PlayerRanking extends JavaPlugin implements Listener {
         }
     }
 
+    /**
+     * 플레이어 데이터를 저장합니다.
+     */
     private void savePlayerData() {
         try {
             this.playerDataConfig.save(this.playerDataFile);
@@ -118,31 +155,54 @@ public final class PlayerRanking extends JavaPlugin implements Listener {
         }
     }
 
+    /**
+     * 플레이어의 돈을 반환합니다.
+     */
     public double getPlayerMoney(OfflinePlayer player) {
         return econ.getBalance(player);
     }
 
-    // In PlayerRanking.java
-
+    /**
+     * 플레이어의 레벨을 설정합니다.
+     */
     public void setPlayerLevel(OfflinePlayer player, int level) {
         if (player == null || player.getUniqueId() == null) {
-            getLogger().warning("Attempted to set level for a null player or UUID.");
+            getLogger().warning("Null 플레이어 또는 UUID의 레벨을 설정하려고 시도했습니다.");
             return;
         }
-        this.playerDataConfig.set(player.getUniqueId().toString(), Integer.valueOf(level));
+        String path = "players." + player.getUniqueId().toString() + ".level";
+        this.playerDataConfig.set(path, level); // 경로 수정
         savePlayerData();
+        getLogger().info("플레이어 " + player.getName() + "의 레벨을 " + level + "으로 저장했습니다.");
     }
 
+    /**
+     * 플레이어의 레벨을 가져옵니다.
+     */
     public int getPlayerLevel(OfflinePlayer player) {
         if (player == null || player.getUniqueId() == null) {
-            getLogger().warning("Attempted to get level for a null player or UUID.");
+            getLogger().warning("Null 플레이어 또는 UUID의 레벨을 가져오려 시도했습니다.");
             return 0;
         }
-        if (player.isOnline())
-            return player.getPlayer().getLevel();
-        return this.playerDataConfig.getInt(player.getUniqueId().toString(), 0);
+        if (player.isOnline()) {
+            int level = player.getPlayer().getLevel();
+            getLogger().info("온라인 플레이어 " + player.getName() + "의 레벨: " + level);
+            return level;
+        }
+        String path = "players." + player.getUniqueId().toString() + ".level";
+        if (this.playerDataConfig.contains(path)) {
+            int level = this.playerDataConfig.getInt(path, 0);
+            getLogger().info("플레이어 " + player.getName() + "의 레벨: " + level);
+            return level;
+        } else {
+            getLogger().info("플레이어 " + player.getName() + "의 레벨 데이터가 없습니다.");
+            return 0;
+        }
     }
 
+    /**
+     * OP가 아닌 모든 플레이어 목록을 가져옵니다.
+     */
     public List<OfflinePlayer> getAllNonOPPlayers() {
         List<OfflinePlayer> allPlayers = new ArrayList<>();
         for (OfflinePlayer offlinePlayer : getServer().getOfflinePlayers())
@@ -151,12 +211,18 @@ public final class PlayerRanking extends JavaPlugin implements Listener {
         return allPlayers;
     }
 
+    /**
+     * 상위 N명의 플레이어를 가져옵니다.
+     */
     public List<OfflinePlayer> getTopPlayers(int topN, Comparator<OfflinePlayer> comparator) {
         List<OfflinePlayer> allPlayers = getAllNonOPPlayers();
         allPlayers.sort(comparator);
         return new ArrayList<>(allPlayers.subList(0, Math.min(topN, allPlayers.size())));
     }
 
+    /**
+     * 플레이어의 전투력을 계산합니다.
+     */
     public int calculateCombatPower(Player player) {
         int totalCombatPower = 0;
 
@@ -169,13 +235,16 @@ public final class PlayerRanking extends JavaPlugin implements Listener {
                     String displayName = meta.getDisplayName();
 
                     // 무기인지 확인하고 전투력을 계산
-                    if (displayName.contains("활") || displayName.contains("단검") || displayName.contains("검") || displayName.contains("창") || displayName.contains("대검") || displayName.contains("지팡이") || displayName.contains("권총") || displayName.contains("하프") || displayName.contains("건틀릿")) { // 무기 종류를 추가하세요
+                    if (displayName.contains("활") || displayName.contains("단검") || displayName.contains("검") ||
+                            displayName.contains("창") || displayName.contains("대검") || displayName.contains("지팡이") ||
+                            displayName.contains("권총") || displayName.contains("하프") || displayName.contains("건틀릿")) { // 무기 종류를 추가하세요
                         int weaponPower = calculateWeaponPower(displayName);
                         totalCombatPower += weaponPower;
                     }
 
                     // 방어구인지 확인하고 방어력을 계산
-                    if (displayName.contains("투구") || displayName.contains("갑옷") || displayName.contains("바지") || displayName.contains("신발")) { // 방어구 종류를 추가하세요
+                    if (displayName.contains("투구") || displayName.contains("갑옷") ||
+                            displayName.contains("바지") || displayName.contains("신발")) { // 방어구 종류를 추가하세요
                         int armorPower = calculateArmorPower(displayName);
                         totalCombatPower += armorPower;
                     }
@@ -245,20 +314,47 @@ public final class PlayerRanking extends JavaPlugin implements Listener {
         }
     }
 
+    /**
+     * 플레이어의 전투력을 가져옵니다.
+     */
     public int getPlayerCombatPower(OfflinePlayer player) {
         if (player == null || player.getUniqueId() == null) {
-            getLogger().warning("Attempted to get combat power for a null player or UUID.");
+            getLogger().warning("Null 플레이어 또는 UUID의 전투력을 가져오려 시도했습니다.");
             return 0;
         }
-
-        // If the player is online, calculate their combat power directly
-        if (player.isOnline()) {
-            return calculateCombatPower(player.getPlayer());
+        String path = "players." + player.getUniqueId().toString() + ".combat_power";
+        if (this.playerDataConfig.contains(path)) {
+            int combatPower = this.playerDataConfig.getInt(path, 0);
+            getLogger().info("플레이어 " + player.getName() + "의 전투력: " + combatPower);
+            return combatPower;
+        } else {
+            getLogger().info("플레이어 " + player.getName() + "의 전투력 데이터가 없습니다.");
+            return 0;
         }
-
-        // Otherwise, return cached combat power (if available)
-        return combatPowerCache.getOrDefault(player.getUniqueId(), 0);
     }
+
+    /**
+     * 플레이어의 전투력을 설정합니다.
+     */
+    public void setPlayerCombatPower(OfflinePlayer player, int combatPower) {
+        if (player == null || player.getUniqueId() == null) {
+            getLogger().warning("Null 플레이어 또는 UUID의 전투력을 설정하려 시도했습니다.");
+            return;
+        }
+        String path = "players." + player.getUniqueId().toString() + ".combat_power";
+        this.playerDataConfig.set(path, combatPower); // 경로 수정
+        savePlayerData();
+        getLogger().info("플레이어 " + player.getName() + "의 전투력을 " + combatPower + "으로 저장했습니다.");
+    }
+
+    /**
+     * PlaceholderExpansion에서 playerDataConfig에 접근할 수 있도록 getter 추가
+     */
+    public FileConfiguration getPlayerDataConfig() {
+        return this.playerDataConfig;
+    }
+
+    // 이벤트 핸들러들
 
     @EventHandler
     public void onPlayerLevelChange(PlayerLevelChangeEvent event) {
@@ -271,22 +367,34 @@ public final class PlayerRanking extends JavaPlugin implements Listener {
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         setPlayerLevel(player, getPlayerLevel(player));
-        // Calculate and cache combat power
+        // 전투력 계산 및 저장
         int combatPower = calculateCombatPower(player);
-        combatPowerCache.put(player.getUniqueId(), combatPower);
-        getLogger().info("Combat Power for " + player.getName() + ": " + combatPower);
+        setPlayerCombatPower(player, combatPower);
+        getLogger().info("플레이어 " + player.getName() + "의 전투력: " + combatPower);
     }
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
         setPlayerLevel(player, getPlayerLevel(player));
-        combatPowerCache.remove(player.getUniqueId());
+        int combatPower = calculateCombatPower(player);
+        setPlayerCombatPower(player, combatPower);
     }
 
     @EventHandler
     public void onPlayerExpChange(PlayerExpChangeEvent event) {
         Player player = event.getPlayer();
         setPlayerLevel(player, player.getLevel());
+        int combatPower = calculateCombatPower(player);
+        setPlayerCombatPower(player, combatPower);
+    }
+
+    @EventHandler
+    public void onInventoryClick(InventoryClickEvent event) {
+        if (event.getWhoClicked() instanceof Player) {
+            Player player = (Player) event.getWhoClicked();
+            int combatPower = calculateCombatPower(player);
+            setPlayerCombatPower(player, combatPower); // 전투력 업데이트
+        }
     }
 }
